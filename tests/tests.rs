@@ -1,5 +1,5 @@
 use serbia::serbia;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 // #[test]
 // fn regular_struct() {
