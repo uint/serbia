@@ -10,3 +10,18 @@ Also: Serbia has some tasty food.
 
 ## Status
 Early research and development. Hold your breath though!
+
+## Usage
+Just slap `#[serbia]` on top of your struct definition.
+
+```rust
+use serbia::serbia;
+
+#[serbia]
+#[derive(Serialize, Deserialize)]
+struct S {
+    arr_a: [u8; 300],
+    arr_b: [u8; 42],
+    arr_small: [u8; 8],
+}
+```
