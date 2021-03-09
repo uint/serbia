@@ -2,11 +2,15 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Expr, ExprLit, Field, ItemStruct, Lit, Meta, NestedMeta, Type};
+use syn::{
+    parse_macro_input, parse_quote, Expr, ExprLit, Field, ItemStruct, Lit, Meta, NestedMeta, Type,
+};
 
 #[proc_macro_attribute]
 pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemStruct);
+
+    let struct_name = input.ident.to_string();
 
     // Determine whether we need to generate code for serialization and/or deserialization.
     let mut serialize = false;
@@ -50,7 +54,25 @@ pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
         false
     }
 
-    for (i, field) in input.fields.iter_mut().filter(is_big_array).enumerate() {}
+    // let serialize_fn_defs = vec![];
+    // let deserialize_fn_defs = vec![];
+
+    for (i, field) in input.fields.iter_mut().filter(is_big_array).enumerate() {
+        if serialize {
+            let fn_name = format!("serbia_serialize_{}_arr_{}", struct_name, i);
+
+            field.attrs.push(parse_quote! {
+                #[serde(serialize_with = #fn_name)]
+            });
+        }
+        if deserialize {
+            let fn_name = format!("serbia_deserialize_{}_arr_{}", struct_name, i);
+
+            field.attrs.push(parse_quote! {
+                #[serde(deserialize_with = #fn_name)]
+            });
+        }
+    }
 
     let expanded = quote! {
         #input
