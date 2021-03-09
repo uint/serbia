@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use syn::{ItemStruct, Meta, NestedMeta, parse_macro_input};
+use syn::{Expr, ExprLit, Field, ItemStruct, Lit, Meta, NestedMeta, Type, parse_macro_input};
 use quote::quote;
 
 #[proc_macro_attribute]
@@ -25,6 +25,25 @@ pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 };
             }
         }
+    }
+
+    fn is_big_array(field: &&mut Field) -> bool {
+        // And this is how you end up in destructuring bind hell.
+        if let Type::Array(array_type) = &field.ty {
+            if let Expr::Lit(ExprLit {lit: Lit::Int(len), ..}) = &array_type.len {
+                let len: usize = len.base10_parse().unwrap();
+
+                if len > 32 {
+                    return true;
+                }
+            }
+        }
+
+        false
+    } 
+
+    for (i, field) in input.fields.iter_mut().filter(is_big_array).enumerate() {
+        
     }
 
     let expanded = quote! {
