@@ -13,5 +13,9 @@ keywords = ["serde"]
 quote = "1.0.9"
 syn = "1.0.62"
 
+[dev-dependencies]
+serde = { version = "1.0.124", features = ["derive"] }
+serde_yaml = "0.8.17"
+
 [lib]
 proc-macro = true
