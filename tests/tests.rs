@@ -1,8 +1,8 @@
-// use serbia::serbia;
-// use serde::Serialize;
+use serbia::serbia;
+use serde::Serialize;
 
 // #[test]
-// fn regular_struct() {
+// fn regular_struct_roundtrip() {
 //     #[serbia]
 //     #[derive(Debug, Serialize, Deserialize, PartialEq)]
 //     struct S {

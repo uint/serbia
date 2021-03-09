@@ -1,10 +1,8 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{
-    parse_macro_input, parse_quote, Expr, ExprLit, Field, ItemStruct, Lit, Meta, NestedMeta, Type,
-};
+use quote::{format_ident, quote};
+use syn::{Expr, ExprLit, Field, ItemStruct, Lit, Meta, NestedMeta, Type, parse_macro_input, parse_quote};
 
 #[proc_macro_attribute]
 pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -36,7 +34,7 @@ pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    fn is_big_array(field: &&mut Field) -> bool {
+    fn parse_big_array(field: &mut Field) -> Option<(&mut Field, usize)> {
         // And this is how you end up in destructuring bind hell.
         if let Type::Array(array_type) = &field.ty {
             if let Expr::Lit(ExprLit {
@@ -46,27 +44,45 @@ pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let len: usize = len.base10_parse().unwrap();
 
                 if len > 32 {
-                    return true;
+                    return Some((field, len));
                 }
             }
         }
 
-        false
+        None
     }
 
-    // let serialize_fn_defs = vec![];
-    // let deserialize_fn_defs = vec![];
+    let mut serialize_fn_defs = vec![];
+    // let mut deserialize_fn_defs = vec![];
 
-    for (i, field) in input.fields.iter_mut().filter(is_big_array).enumerate() {
+    for (i, (field, len)) in input.fields.iter_mut().filter_map(parse_big_array).enumerate() {
+        let ty = &field.ty;
+
         if serialize {
-            let fn_name = format!("serbia_serialize_{}_arr_{}", struct_name, i);
+            let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", struct_name, i);
+            let fn_name = fn_ident.to_string();
 
             field.attrs.push(parse_quote! {
                 #[serde(serialize_with = #fn_name)]
             });
+
+            serialize_fn_defs.push(quote! {
+                fn #fn_ident<S>(array: &#ty, serializer: S) -> core::result::Result<S::Ok, S::Error>
+                where
+                    S: serde::Serializer,
+                {
+                    use serde::ser::SerializeTuple;
+
+                    let mut seq = serializer.serialize_tuple(#len)?;
+                    for e in array {
+                        seq.serialize_element(e)?;
+                    }
+                    seq.end()
+                }
+            });
         }
         if deserialize {
-            let fn_name = format!("serbia_deserialize_{}_arr_{}", struct_name, i);
+            let fn_name = format_ident!("serbia_deserialize_{}_arr_{}", struct_name, i);
 
             field.attrs.push(parse_quote! {
                 #[serde(deserialize_with = #fn_name)]
@@ -76,6 +92,7 @@ pub fn serbia(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #input
+        #(#serialize_fn_defs)*
     };
 
     TokenStream::from(expanded)
