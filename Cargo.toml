@@ -1,0 +1,12 @@
+[package]
+name = "serbia"
+description = "No-fuss big arrays for Serde"
+version = "0.1.0"
+authors = ["Tomasz Kurcz <uint@lavabit.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/uint/serbia"
+edition = "2018"
+categories = ["rust-patterns"]
+keywords = ["serde"]
+
+[dependencies]
