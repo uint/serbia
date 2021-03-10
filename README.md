@@ -1,4 +1,11 @@
 # serbia
+
+[![docs.rs badge](https://docs.rs/serbia/badge.svg)](https://docs.rs/serbia/)
+[![crates.io badge](https://img.shields.io/crates/v/serbia.svg)](https://crates.io/crates/serbia/)
+[![Build Status](https://github.com/uint/serbia/workflows/serbia%20CI/badge.svg)](https://github.com/uint/serbia)
+
+---
+
 Serde big arrays. An attribute macro to make (de)serializing big arrays painless, following a [design proposed by dtolnay](https://github.com/dtolnay/request-for-implementation/issues/17).
 
 ## Why?
