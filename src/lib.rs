@@ -97,11 +97,12 @@ fn check_if_serializing_deserializing<'a>(
             for derive in derive_attr.nested {
                 if let NestedMeta::Meta(Meta::Path(path)) = derive {
                     // TODO: Is there a better way to make sure these are the derives we want?
-                    // TODO: What happens if we get something like #[derive(serde::Serialize)]?
-                    if path.is_ident("Serialize") {
-                        serialize = true;
-                    } else if path.is_ident("Deserialize") {
-                        deserialize = true;
+                    if let Some(last_segment) = path.segments.iter().last() {
+                        if last_segment.ident == "Serialize" {
+                            serialize = true;
+                        } else if last_segment.ident == "Deserialize" {
+                            deserialize = true;
+                        }
                     }
                 };
             }
@@ -324,7 +325,6 @@ fn test_detect_serialize_deserialize() {
 }
 
 #[test]
-#[ignore]
 fn test_detect_serialize_deserialize_qualified() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
