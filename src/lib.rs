@@ -168,6 +168,31 @@ impl ToTokens for Item {
     }
 }
 
+/// An attribute macro that enables big arrays for [Serde](serde).
+///
+/// Simply slap it on top of your struct or enum, before the [Serialize](serde::Serialize)/[Deserialize](serde::Deserialize) derive.
+///
+/// # Usage
+/// ```edition2018
+/// use serbia::serbia;
+/// use serde::{Deserialize, Serialize};
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     arr_big: [u8; 300],   // Custom (de)serializers will be generated for this.
+///     arr_small: [u8; 8],   // Nothing done here - Serde handles arrays up to length 32 just fine.
+///     s: String,
+/// }
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// enum E {
+///     ArrBig([u8; 300]),
+///     ArrSmall([u8; 22]),
+///     Mixed([u8; 8], [i32; 44], String),
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn serbia(
     _attr: proc_macro::TokenStream,
