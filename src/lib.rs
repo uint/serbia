@@ -1,10 +1,11 @@
 extern crate proc_macro;
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
+use syn::parse::{Parse, ParseStream};
 use syn::{
-    parse_macro_input, parse_quote, Attribute, Expr, ExprLit, Field, ItemStruct, Lit, Meta,
-    NestedMeta, Type,
+    parse_macro_input, parse_quote, Attribute, Expr, ExprLit, Field, ItemEnum, ItemStruct, Lit,
+    Meta, NestedMeta, Type,
 };
 
 fn render_serialize_fn(fn_ident: &Ident, ty: &Type, len: usize) -> TokenStream {
@@ -108,27 +109,74 @@ fn check_if_serializing_deserializing<'a>(
     (serialize, deserialize)
 }
 
+enum Item {
+    Struct(ItemStruct),
+    Enum(ItemEnum),
+}
+
+impl Item {
+    fn fields(&mut self) -> impl Iterator<Item = &mut Field> {
+        match self {
+            Item::Struct(s) => s.fields.iter_mut(),
+            Item::Enum(_e) => unimplemented!(),
+        }
+    }
+
+    fn attrs(&self) -> impl Iterator<Item = &Attribute> {
+        match self {
+            Item::Struct(s) => s.attrs.iter(),
+            Item::Enum(e) => e.attrs.iter(),
+        }
+    }
+
+    fn ident(&self) -> &Ident {
+        match self {
+            Item::Struct(s) => &s.ident,
+            Item::Enum(e) => &e.ident,
+        }
+    }
+}
+
+impl Parse for Item {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let item: syn::Item = input.parse()?;
+
+        match item {
+            syn::Item::Struct(s) => Ok(Self::Struct(s)),
+            syn::Item::Enum(e) => Ok(Self::Enum(e)),
+            _ => Err(syn::Error::new(
+                input.span(),
+                "serbia accepts only enums or structs",
+            )),
+        }
+    }
+}
+
+impl ToTokens for Item {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Item::Struct(s) => s.to_tokens(tokens),
+            Item::Enum(e) => e.to_tokens(tokens),
+        }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn serbia(
     _attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let mut input = parse_macro_input!(input as ItemStruct);
+    let mut input = parse_macro_input!(input as Item);
 
-    let struct_name = input.ident.to_string();
+    let struct_name = input.ident().to_string();
 
     // Determine whether we need to generate code for serialization and/or deserialization.
-    let external_attrs = input.attrs.iter();
+    let external_attrs = input.attrs();
     let (serialize, deserialize) = check_if_serializing_deserializing(external_attrs);
 
     let mut fn_defs = vec![];
 
-    for (i, (field, len)) in input
-        .fields
-        .iter_mut()
-        .filter_map(parse_big_array)
-        .enumerate()
-    {
+    for (i, (field, len)) in input.fields().filter_map(parse_big_array).enumerate() {
         let ty = &field.ty;
 
         if serialize {
