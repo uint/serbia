@@ -12,7 +12,7 @@ Also: Serbia has some tasty food.
 Early research and development. Hold your breath though!
 
 ## Usage
-Just slap `#[serbia]` on top of your struct definition.
+Just slap `#[serbia]` on top of your type definition. Structs and enums both work!
 
 ```rust
 use serbia::serbia;
@@ -23,5 +23,13 @@ struct S {
     arr_a: [u8; 300],
     arr_b: [u8; 42],
     arr_small: [u8; 8],
+}
+
+#[serbia]
+#[derive(Serialize, Deserialize)]
+enum E {
+    ArrBig([u8; 300]),
+    ArrSmall([u8; 22]),
+    Mixed([u8; 8], [i32; 44], String),
 }
 ```

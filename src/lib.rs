@@ -1,3 +1,5 @@
+#![feature(iterator_fold_self)]
+
 extern crate proc_macro;
 
 use proc_macro2::{Ident, TokenStream};
@@ -116,10 +118,16 @@ enum Item {
 
 impl Item {
     fn fields(&mut self) -> impl Iterator<Item = &mut Field> {
-        match self {
-            Item::Struct(s) => s.fields.iter_mut(),
-            Item::Enum(_e) => unimplemented!(),
-        }
+        let result: Box<dyn Iterator<Item = &mut Field>> = match self {
+            Item::Struct(s) => Box::new(s.fields.iter_mut()),
+            Item::Enum(e) => {
+                let outer_iter = e.variants.iter_mut();
+                let result = outer_iter.map(|v| v.fields.iter_mut()).flatten();
+                Box::new(result)
+            }
+        };
+
+        result
     }
 
     fn attrs(&self) -> impl Iterator<Item = &Attribute> {
