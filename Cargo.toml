@@ -11,8 +11,9 @@ categories = ["rust-patterns"]
 keywords = ["serde"]
 
 [dependencies]
-quote = "1.0.9"
-syn = { version = "1.0.62", features = ["full", "printing"] }
+proc-macro2 = "^1"
+quote = "^1"
+syn = { version = "^1", features = ["full", "printing"] }
 
 [dev-dependencies]
 serde = { version = "1.0.124", features = ["derive"] }
