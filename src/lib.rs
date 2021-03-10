@@ -160,3 +160,133 @@ pub fn serbia(
 
     proc_macro::TokenStream::from(expanded)
 }
+
+#[test]
+fn test_parse_big_array() {
+    let s: ItemStruct = parse_quote! {
+        struct S {
+            a: String,
+            b: [u32; 32],
+            c: [u32; 33],
+        }
+    };
+
+    let mut fields: Vec<_> = s.fields.into_iter().collect();
+
+    assert!(parse_big_array(&mut fields[0]).is_none());
+    assert!(parse_big_array(&mut fields[1]).is_none());
+    assert!(parse_big_array(&mut fields[2]).unwrap().1 == 33);
+}
+
+#[test]
+fn test_no_serde_derive() {
+    let attrs: Vec<Attribute> = vec![
+        parse_quote! {
+            #[derive(Serializer, Debug, Asd)]
+        },
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[serde(serialize_with = "asd")]
+        },
+    ];
+
+    assert_eq!(
+        check_if_serializing_deserializing(attrs.iter()),
+        (false, false)
+    );
+}
+
+#[test]
+fn test_detect_serialize() {
+    let attrs: Vec<Attribute> = vec![
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[derive(Deserializer, Debug, Asd, Serialize)]
+        },
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[serde(serialize_with = "asd")]
+        },
+    ];
+
+    assert_eq!(
+        check_if_serializing_deserializing(attrs.iter()),
+        (true, false)
+    );
+}
+
+#[test]
+fn test_detect_deserialize() {
+    let attrs: Vec<Attribute> = vec![
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[derive(Deserializer, Debug, Deserialize, Asd)]
+        },
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[serde(serialize_with = "asd")]
+        },
+    ];
+
+    assert_eq!(
+        check_if_serializing_deserializing(attrs.iter()),
+        (false, true)
+    );
+}
+
+#[test]
+fn test_detect_serialize_deserialize() {
+    let attrs: Vec<Attribute> = vec![
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[derive(Serialize, Deserializer, Debug, Deserialize, Asd)]
+        },
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[serde(serialize_with = "asd")]
+        },
+    ];
+
+    assert_eq!(
+        check_if_serializing_deserializing(attrs.iter()),
+        (true, true)
+    );
+}
+
+#[test]
+#[ignore]
+fn test_detect_serialize_deserialize_qualified() {
+    let attrs: Vec<Attribute> = vec![
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[derive(serde::Serialize, Deserializer, Debug, serde::Deserialize, Asd)]
+        },
+        parse_quote! {
+            #[asd]
+        },
+        parse_quote! {
+            #[serde(serialize_with = "asd")]
+        },
+    ];
+
+    assert_eq!(
+        check_if_serializing_deserializing(attrs.iter()),
+        (true, true)
+    );
+}
