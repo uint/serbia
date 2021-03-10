@@ -1,5 +1,3 @@
-#![feature(iterator_fold_self)]
-
 extern crate proc_macro;
 
 use proc_macro2::{Ident, TokenStream};
