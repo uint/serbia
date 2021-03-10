@@ -14,7 +14,7 @@ The name was too good. I had to do it. Don't judge me.
 Also: Serbia has some tasty food.
 
 ## Status
-Early research and development. Hold your breath though!
+Under development, but functional. Let me know what's missing!
 
 ## Usage
 Just slap `#[serbia]` on top of your type definition. Structs and enums both work!
