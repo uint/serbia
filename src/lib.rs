@@ -8,10 +8,11 @@ use syn::{
     Meta, NestedMeta, Type,
 };
 
-fn render_serialize_fn(fn_ident: &Ident, ty: &Type, len: usize) -> TokenStream {
+fn render_serialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
     quote! {
-        fn #fn_ident<S>(array: &#ty, serializer: S) -> core::result::Result<S::Ok, S::Error>
+        fn #fn_ident<E, S>(array: &[E; #len], serializer: S) -> core::result::Result<S::Ok, S::Error>
         where
+            E: serde::Serialize,
             S: serde::Serializer,
         {
             use serde::ser::SerializeTuple;
@@ -25,18 +26,32 @@ fn render_serialize_fn(fn_ident: &Ident, ty: &Type, len: usize) -> TokenStream {
     }
 }
 
-fn render_deserialize_fn(fn_ident: &Ident, ty: &Type, len: usize) -> TokenStream {
+fn render_deserialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
     let count = 0..len;
 
     quote! {
-        fn #fn_ident<'de, D>(deserializer: D) -> core::result::Result<#ty, D::Error>
+        fn #fn_ident<'de, E, D>(deserializer: D) -> core::result::Result<[E; #len], D::Error>
         where
+            E: serde::Deserialize<'de>,
             D: serde::Deserializer<'de>,
         {
-            struct ArrayVisitor;
+            struct ArrayVisitor<E> {
+                _casper: std::marker::PhantomData<E>,
+            }
 
-            impl<'de> serde::de::Visitor<'de> for ArrayVisitor {
-                type Value = #ty;
+            impl<E> ArrayVisitor<E> {
+                fn new() -> Self {
+                    Self {
+                        _casper: std::marker::PhantomData,
+                    }
+                }
+            }
+
+            impl<'de, E> serde::de::Visitor<'de> for ArrayVisitor<E>
+            where
+                E: serde::Deserialize<'de>,
+            {
+                type Value = [E; #len];
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     formatter.write_str(std::concat!("an array of length ", #len))
@@ -58,7 +73,7 @@ fn render_deserialize_fn(fn_ident: &Ident, ty: &Type, len: usize) -> TokenStream
                 }
             }
 
-            deserializer.deserialize_tuple(#len, ArrayVisitor)
+            deserializer.deserialize_tuple(#len, ArrayVisitor::new())
         }
     }
 }
@@ -209,8 +224,6 @@ pub fn serbia(
     let mut fn_defs = vec![];
 
     for (i, (field, len)) in input.fields().filter_map(parse_big_array).enumerate() {
-        let ty = &field.ty;
-
         if serialize {
             let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", struct_name, i);
             let fn_name = fn_ident.to_string();
@@ -219,7 +232,7 @@ pub fn serbia(
                 #[serde(serialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_serialize_fn(&fn_ident, &ty, len));
+            fn_defs.push(render_serialize_fn(&fn_ident, len));
         }
         if deserialize {
             let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", struct_name, i);
@@ -229,7 +242,7 @@ pub fn serbia(
                 #[serde(deserialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_deserialize_fn(&fn_ident, &ty, len));
+            fn_defs.push(render_deserialize_fn(&fn_ident, len));
         }
     }
 
