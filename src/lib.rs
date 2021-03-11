@@ -2,7 +2,10 @@ extern crate proc_macro;
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::parse::{Parse, ParseStream};
+use syn::{
+    parse::{Parse, ParseStream},
+    ExprPath, MetaList,
+};
 use syn::{
     parse_macro_input, parse_quote, Attribute, Expr, ExprLit, Field, ItemEnum, ItemStruct, Lit,
     Meta, NestedMeta, Type,
@@ -52,7 +55,7 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
                 type Value = [E; #len];
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    formatter.write_str(std::concat!("an array of length ", #len))
+                    formatter.write_str(std::concat!("an array"))
                 }
 
                 #[inline]
@@ -82,6 +85,37 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 /// A helper that verifies the type of the field is an array larger than 32
 /// and extracts its length.
 fn parse_big_array(field: &mut Field) -> Option<(&mut Field, Expr)> {
+    if let Some(i) = field.attrs.iter().position(|a| {
+        if let Some(ident) = a.path.get_ident() {
+            return ident == "serbia_bufsize";
+        }
+
+        false
+    }) {
+        let attr = field.attrs.remove(i);
+
+        if let Meta::List(MetaList {
+            nested: mut meta, ..
+        }) = attr.parse_meta().unwrap()
+        {
+            if meta.len() != 1 {
+                panic!("serbia_bufsize expected 1 argument, found {}", meta.len());
+            }
+
+            let result = match meta.pop().unwrap().into_value() {
+                NestedMeta::Lit(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
+                NestedMeta::Meta(Meta::Path(path)) => Expr::Path(ExprPath {
+                    attrs: vec![],
+                    path,
+                    qself: None,
+                }),
+                _ => panic!("invalid argument to serbia_bufsize"),
+            };
+
+            return Some((field, result));
+        }
+    }
+
     // And this is how you end up in destructuring bind hell.
     if let Type::Array(array_type) = &field.ty {
         if let Expr::Lit(ExprLit {
@@ -257,7 +291,7 @@ pub fn serbia(
 }
 
 #[test]
-fn test_parse_big_array() {
+fn parse_big_array_len() {
     let s: ItemStruct = parse_quote! {
         struct S {
             a: String,
@@ -270,6 +304,24 @@ fn test_parse_big_array() {
 
     assert!(parse_big_array(&mut fields[0]).is_none());
     assert!(parse_big_array(&mut fields[1]).is_none());
+    assert!(parse_big_array(&mut fields[2]).is_some());
+}
+
+#[test]
+fn manual_bufsize() {
+    let s: ItemStruct = parse_quote! {
+        struct S {
+            a: String,
+            #[serbia_bufsize(32)]
+            b: [u32; 32],
+            c: [u32; 33],
+        }
+    };
+
+    let mut fields: Vec<_> = s.fields.into_iter().collect();
+
+    assert!(parse_big_array(&mut fields[0]).is_none());
+    assert!(parse_big_array(&mut fields[1]).is_some());
     assert!(parse_big_array(&mut fields[2]).is_some());
 }
 
