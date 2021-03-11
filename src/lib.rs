@@ -8,7 +8,7 @@ use syn::{
     Meta, NestedMeta, Type,
 };
 
-fn render_serialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
+fn render_serialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
     quote! {
         fn #fn_ident<E, S>(array: &[E; #len], serializer: S) -> core::result::Result<S::Ok, S::Error>
         where
@@ -26,9 +26,7 @@ fn render_serialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
     }
 }
 
-fn render_deserialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
-    let count = 0..len;
-
+fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
     quote! {
         fn #fn_ident<'de, E, D>(deserializer: D) -> core::result::Result<[E; #len], D::Error>
         where
@@ -62,14 +60,17 @@ fn render_deserialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
                 where
                     A: serde::de::SeqAccess<'de>,
                 {
-                    Ok([
-                        #(
-                            match seq.next_element()? {
-                                Some(val) => val,
-                                None => return Err(serde::de::Error::invalid_length(#count, &self)),
-                            }
-                        ),*
-                    ])
+                    let mut arr: Self::Value = unsafe{ std::mem::MaybeUninit::uninit().assume_init() };
+
+                    // Could be replaced with https://github.com/rust-lang/rust/issues/75243 once stabilized;
+                    for i in 0..#len {
+                        arr[i] = match seq.next_element()? {
+                            Some(val) => val,
+                            None => return Err(serde::de::Error::invalid_length(i, &self)),
+                        };
+                    }
+
+                    Ok(arr)
                 }
             }
 
@@ -80,7 +81,7 @@ fn render_deserialize_fn(fn_ident: &Ident, len: usize) -> TokenStream {
 
 /// A helper that verifies the type of the field is an array larger than 32
 /// and extracts its length.
-fn parse_big_array(field: &mut Field) -> Option<(&mut Field, usize)> {
+fn parse_big_array(field: &mut Field) -> Option<(&mut Field, Expr)> {
     // And this is how you end up in destructuring bind hell.
     if let Type::Array(array_type) = &field.ty {
         if let Expr::Lit(ExprLit {
@@ -90,7 +91,8 @@ fn parse_big_array(field: &mut Field) -> Option<(&mut Field, usize)> {
             let len: usize = len.base10_parse().unwrap();
 
             if len > 32 {
-                return Some((field, len));
+                let len_expr = array_type.len.clone();
+                return Some((field, len_expr));
             }
         }
     }
@@ -232,7 +234,7 @@ pub fn serbia(
                 #[serde(serialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_serialize_fn(&fn_ident, len));
+            fn_defs.push(render_serialize_fn(&fn_ident, &len));
         }
         if deserialize {
             let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", struct_name, i);
@@ -242,7 +244,7 @@ pub fn serbia(
                 #[serde(deserialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_deserialize_fn(&fn_ident, len));
+            fn_defs.push(render_deserialize_fn(&fn_ident, &len));
         }
     }
 
@@ -268,7 +270,7 @@ fn test_parse_big_array() {
 
     assert!(parse_big_array(&mut fields[0]).is_none());
     assert!(parse_big_array(&mut fields[1]).is_none());
-    assert!(parse_big_array(&mut fields[2]).unwrap().1 == 33);
+    assert!(parse_big_array(&mut fields[2]).is_some());
 }
 
 #[test]
