@@ -4,7 +4,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
-    ExprPath, MetaList,
+    MetaList,
 };
 use syn::{
     parse_macro_input, parse_quote, Attribute, Expr, ExprLit, Field, ItemEnum, ItemStruct, Lit,
@@ -84,7 +84,7 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 
 /// A helper that verifies the type of the field is an array larger than 32
 /// and extracts its length.
-fn parse_big_array(field: &mut Field) -> Option<(&mut Field, Expr)> {
+fn parse_big_array(field: &mut Field) -> Option<(&mut Field, TokenStream)> {
     if let Some(i) = field.attrs.iter().position(|a| {
         if let Some(ident) = a.path.get_ident() {
             return ident == "serbia_bufsize";
@@ -102,15 +102,7 @@ fn parse_big_array(field: &mut Field) -> Option<(&mut Field, Expr)> {
                 panic!("serbia_bufsize expected 1 argument, found {}", meta.len());
             }
 
-            let result = match meta.pop().unwrap().into_value() {
-                NestedMeta::Lit(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
-                NestedMeta::Meta(Meta::Path(path)) => Expr::Path(ExprPath {
-                    attrs: vec![],
-                    path,
-                    qself: None,
-                }),
-                _ => panic!("invalid argument to serbia_bufsize"),
-            };
+            let result = meta.pop().unwrap().into_token_stream();
 
             return Some((field, result));
         }
@@ -126,7 +118,7 @@ fn parse_big_array(field: &mut Field) -> Option<(&mut Field, Expr)> {
 
             if len > 32 {
                 let len_expr = array_type.len.clone();
-                return Some((field, len_expr));
+                return Some((field, len_expr.into_token_stream()));
             }
         }
     }
