@@ -1,3 +1,5 @@
+//! This crate provides the [serbia](macro@self::serbia) macro.
+
 extern crate proc_macro;
 
 use proc_macro2::{Ident, TokenStream};
@@ -211,11 +213,11 @@ impl ToTokens for Item {
     }
 }
 
-/// An attribute macro that enables big arrays for [Serde](serde).
+/// An attribute macro that enables (de)serializing arrays of length larger than 32 with [Serde](serde).
 ///
 /// Simply slap it on top of your struct or enum, before the [Serialize](serde::Serialize)/[Deserialize](serde::Deserialize) derive.
 ///
-/// # Usage
+/// # Basic usage
 /// ```edition2018
 /// use serbia::serbia;
 /// use serde::{Deserialize, Serialize};
@@ -234,6 +236,27 @@ impl ToTokens for Item {
 ///     ArrBig([u8; 300]),
 ///     ArrSmall([u8; 22]),
 ///     Mixed([u8; 8], [i32; 44], String),
+/// }
+/// ```
+///
+/// # Specifying buffer size
+///
+/// You can use the `#[serbia_bufsize( ... )]` attribute to set a buffer size for
+/// a field. This can be useful for type aliases. Constants work.
+///
+/// ```rust
+/// use serbia::serbia;
+/// use serde::{Deserialize, Serialize};
+///
+/// const BUFSIZE: usize = 300;
+/// type BigArray = [i32; BUFSIZE];
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     #[serbia_bufsize(BUFSIZE)]
+///     arr_a: BigArray,
+///     foo: String,
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -318,7 +341,7 @@ fn manual_bufsize() {
 }
 
 #[test]
-fn test_no_serde_derive() {
+fn no_serde_derive() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
             #[derive(Serializer, Debug, Asd)]
@@ -338,7 +361,7 @@ fn test_no_serde_derive() {
 }
 
 #[test]
-fn test_detect_serialize() {
+fn detect_serialize() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
             #[asd]
@@ -361,7 +384,7 @@ fn test_detect_serialize() {
 }
 
 #[test]
-fn test_detect_deserialize() {
+fn detect_deserialize() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
             #[asd]
@@ -384,7 +407,7 @@ fn test_detect_deserialize() {
 }
 
 #[test]
-fn test_detect_serialize_deserialize() {
+fn detect_serialize_deserialize() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
             #[asd]
@@ -407,7 +430,7 @@ fn test_detect_serialize_deserialize() {
 }
 
 #[test]
-fn test_detect_serialize_deserialize_qualified() {
+fn detect_serialize_deserialize_qualified() {
     let attrs: Vec<Attribute> = vec![
         parse_quote! {
             #[asd]
