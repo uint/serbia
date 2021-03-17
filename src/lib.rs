@@ -65,14 +65,15 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
                 where
                     A: serde::de::SeqAccess<'de>,
                 {
-                    let mut arr: Self::Value = unsafe{ std::mem::MaybeUninit::uninit().assume_init() };
+                    unsafe {
+                        let mut arr: Self::Value =  std::mem::MaybeUninit::uninit().assume_init();
 
-                    // Could be replaced with https://github.com/rust-lang/rust/issues/75243 once stabilized;
-                    for i in 0..#len {
-                        arr[i] = match seq.next_element()? {
-                            Some(val) => val,
-                            None => return Err(serde::de::Error::invalid_length(i, &self)),
-                        };
+                        for (i, v) in arr.iter_mut().enumerate() {
+                            *v = match seq.next_element()? {
+                                Some(val) => val,
+                                None => return Err(serde::de::Error::invalid_length(i, &self)),
+                            };
+                        }
                     }
 
                     Ok(arr)
@@ -155,6 +156,12 @@ fn check_if_serializing_deserializing<'a>(
     (serialize, deserialize)
 }
 
+struct Context {
+    type_name: String,
+    serialize: bool,
+    deserialize: bool,
+}
+
 enum Item {
     Struct(ItemStruct),
     Enum(ItemEnum),
@@ -185,6 +192,16 @@ impl Item {
         match self {
             Item::Struct(s) => &s.ident,
             Item::Enum(e) => &e.ident,
+        }
+    }
+
+    fn context(&self) -> Context {
+        let (serialize, deserialize) = check_if_serializing_deserializing(self.attrs());
+
+        Context {
+            type_name: self.ident().to_string(),
+            serialize,
+            deserialize,
         }
     }
 }
@@ -265,18 +282,13 @@ pub fn serbia(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as Item);
-
-    let struct_name = input.ident().to_string();
-
-    // Determine whether we need to generate code for serialization and/or deserialization.
-    let external_attrs = input.attrs();
-    let (serialize, deserialize) = check_if_serializing_deserializing(external_attrs);
+    let context = input.context();
 
     let mut fn_defs = vec![];
 
     for (i, (field, len)) in input.fields().filter_map(parse_big_array).enumerate() {
-        if serialize {
-            let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", struct_name, i);
+        if context.serialize {
+            let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 
             field.attrs.push(parse_quote! {
@@ -285,8 +297,8 @@ pub fn serbia(
 
             fn_defs.push(render_serialize_fn(&fn_ident, &len));
         }
-        if deserialize {
-            let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", struct_name, i);
+        if context.deserialize {
+            let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 
             field.attrs.push(parse_quote! {
