@@ -18,6 +18,7 @@ syn = { version = "^1", features = ["full", "printing"] }
 [dev-dependencies]
 serde = { version = "1.0.124", features = ["derive"] }
 serde_yaml = "0.8.17"
+trybuild = "1.0.41"
 
 [lib]
 proc-macro = true
