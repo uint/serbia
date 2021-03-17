@@ -1,0 +1,13 @@
+error: custom attribute panicked
+ --> $DIR/05-bufsize-wrong-arg.rs:5:5
+  |
+5 |     #[serbia]
+  |     ^^^^^^^^^
+  |
+  = help: message: serbia_bufsize expected 1 argument, found 2
+
+error[E0422]: cannot find struct, variant or union type `S` in this scope
+  --> $DIR/05-bufsize-wrong-arg.rs:14:20
+   |
+14 |     let original = S {
+   |                    ^ not found in this scope

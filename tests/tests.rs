@@ -10,4 +10,6 @@ fn trybuild() {
     t.pass("tests/trybuild/02-tuple-struct-roundtrip.rs");
     t.pass("tests/trybuild/03-enum-roundtrip.rs");
     t.pass("tests/trybuild/04-type-alias.rs");
+    t.compile_fail("tests/trybuild/05-bufsize-wrong-arg.rs");
+    t.compile_fail("tests/trybuild/06-unhandled-const.rs");
 }
