@@ -74,9 +74,9 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
                                 None => return Err(serde::de::Error::invalid_length(i, &self)),
                             };
                         }
-                    }
 
-                    Ok(arr)
+                        Ok(arr)
+                    }
                 }
             }
 
