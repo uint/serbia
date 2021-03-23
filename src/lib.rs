@@ -85,50 +85,6 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
     }
 }
 
-/// A helper that verifies the type of the field is an array larger than 32
-/// and extracts its length.
-fn parse_big_array(field: &mut Field) -> Option<(&mut Field, TokenStream)> {
-    if let Some(i) = field.attrs.iter().position(|a| {
-        if let Some(ident) = a.path.get_ident() {
-            return ident == "serbia_bufsize";
-        }
-
-        false
-    }) {
-        let attr = field.attrs.remove(i);
-
-        if let Meta::List(MetaList {
-            nested: mut meta, ..
-        }) = attr.parse_meta().unwrap()
-        {
-            if meta.len() != 1 {
-                panic!("serbia_bufsize expected 1 argument, found {}", meta.len());
-            }
-
-            let result = meta.pop().unwrap().into_token_stream();
-
-            return Some((field, result));
-        }
-    }
-
-    // And this is how you end up in destructuring bind hell.
-    if let Type::Array(array_type) = &field.ty {
-        if let Expr::Lit(ExprLit {
-            lit: Lit::Int(len), ..
-        }) = &array_type.len
-        {
-            let len: usize = len.base10_parse().unwrap();
-
-            if len > 32 {
-                let len_expr = array_type.len.clone();
-                return Some((field, len_expr.into_token_stream()));
-            }
-        }
-    }
-
-    None
-}
-
 /// Helper to search through a list of attributes for Serialize and Deserialize derives.
 fn check_if_serializing_deserializing<'a>(
     attrs: impl Iterator<Item = &'a Attribute>,
@@ -162,6 +118,55 @@ struct Context {
     deserialize: bool,
 }
 
+struct BigArrayField<'f> {
+    field: &'f mut Field,
+    len: TokenStream,
+}
+
+impl<'f> BigArrayField<'f> {
+    fn from_field(field: &'f mut Field) -> Option<Self> {
+        if let Some(i) = field.attrs.iter().position(|a| {
+            if let Some(ident) = a.path.get_ident() {
+                return ident == "serbia_bufsize";
+            }
+
+            false
+        }) {
+            let attr = field.attrs.remove(i);
+
+            if let Meta::List(MetaList {
+                nested: mut meta, ..
+            }) = attr.parse_meta().unwrap()
+            {
+                if meta.len() != 1 {
+                    panic!("serbia_bufsize expected 1 argument, found {}", meta.len());
+                }
+
+                let len = meta.pop().unwrap().into_token_stream();
+
+                return Some(Self { field, len });
+            }
+        }
+
+        // And this is how you end up in destructuring bind hell.
+        if let Type::Array(array_type) = &field.ty {
+            if let Expr::Lit(ExprLit {
+                lit: Lit::Int(len), ..
+            }) = &array_type.len
+            {
+                let len: usize = len.base10_parse().unwrap();
+
+                if len > 32 {
+                    let len = array_type.len.clone().into_token_stream();
+                    return Some(BigArrayField { field, len });
+                }
+            }
+        }
+
+        None
+    }
+}
+
 enum Item {
     Struct(ItemStruct),
     Enum(ItemEnum),
@@ -179,6 +184,10 @@ impl Item {
         };
 
         result
+    }
+
+    fn big_array_fields(&mut self) -> impl Iterator<Item = BigArrayField> {
+        self.fields().filter_map(BigArrayField::from_field)
     }
 
     fn attrs(&self) -> impl Iterator<Item = &Attribute> {
@@ -286,26 +295,26 @@ pub fn serbia(
 
     let mut fn_defs = vec![];
 
-    for (i, (field, len)) in input.fields().filter_map(parse_big_array).enumerate() {
+    for (i, field) in input.big_array_fields().enumerate() {
         if context.serialize {
             let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 
-            field.attrs.push(parse_quote! {
+            field.field.attrs.push(parse_quote! {
                 #[serde(serialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_serialize_fn(&fn_ident, &len));
+            fn_defs.push(render_serialize_fn(&fn_ident, &field.len));
         }
         if context.deserialize {
             let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 
-            field.attrs.push(parse_quote! {
+            field.field.attrs.push(parse_quote! {
                 #[serde(deserialize_with = #fn_name)]
             });
 
-            fn_defs.push(render_deserialize_fn(&fn_ident, &len));
+            fn_defs.push(render_deserialize_fn(&fn_ident, &field.len));
         }
     }
 
@@ -329,9 +338,9 @@ fn parse_big_array_len() {
 
     let mut fields: Vec<_> = s.fields.into_iter().collect();
 
-    assert!(parse_big_array(&mut fields[0]).is_none());
-    assert!(parse_big_array(&mut fields[1]).is_none());
-    assert!(parse_big_array(&mut fields[2]).is_some());
+    assert!(BigArrayField::from_field(&mut fields[0]).is_none());
+    assert!(BigArrayField::from_field(&mut fields[1]).is_none());
+    assert!(BigArrayField::from_field(&mut fields[2]).is_some());
 }
 
 #[test]
@@ -347,9 +356,9 @@ fn manual_bufsize() {
 
     let mut fields: Vec<_> = s.fields.into_iter().collect();
 
-    assert!(parse_big_array(&mut fields[0]).is_none());
-    assert!(parse_big_array(&mut fields[1]).is_some());
-    assert!(parse_big_array(&mut fields[2]).is_some());
+    assert!(BigArrayField::from_field(&mut fields[0]).is_none());
+    assert!(BigArrayField::from_field(&mut fields[1]).is_some());
+    assert!(BigArrayField::from_field(&mut fields[2]).is_some());
 }
 
 #[test]
