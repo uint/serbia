@@ -1,6 +1,26 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{Expr, ExprLit, Field, Lit, Meta, MetaList, Type};
+use syn::{Expr, ExprLit, Field, Ident, Lit, Meta, MetaList, NestedMeta, Type};
+
+struct Arg {
+    key: String,
+    value: Lit,
+}
+
+fn parse_arg(meta: NestedMeta) -> Result<Arg, ()> {
+    if let NestedMeta::Meta(Meta::NameValue(meta)) = meta {
+        let key = meta
+            .path
+            .get_ident()
+            .expect("expected attribute arg key to be an ident")
+            .to_string();
+        let value = meta.lit;
+
+        return Ok(Arg { key, value });
+    }
+
+    Err(())
+}
 
 /// A field that is a (potentially) big array, with convenient metadata
 /// for generating custom serialization/deserialization code.
@@ -10,28 +30,36 @@ pub struct BigArrayField<'f> {
 }
 
 impl<'f> BigArrayField<'f> {
-    pub fn from_field(field: &'f mut Field) -> Option<Self> {
-        if let Some(i) = field.attrs.iter().position(|a| {
+    pub fn parse_field(field: &'f mut Field) -> Option<Self> {
+        let mut len = None;
+
+        for attr in field.attrs.drain_filter(|a| {
             if let Some(ident) = a.path.get_ident() {
-                return ident == "serbia_bufsize";
+                return ident == "serbia";
             }
 
             false
         }) {
-            let attr = field.attrs.remove(i);
+            if let Meta::List(MetaList { nested: meta, .. }) = attr.parse_meta().unwrap() {
+                for arg in meta {
+                    let arg = parse_arg(arg).unwrap();
 
-            if let Meta::List(MetaList {
-                nested: mut meta, ..
-            }) = attr.parse_meta().unwrap()
-            {
-                if meta.len() != 1 {
-                    panic!("serbia_bufsize expected 1 argument, found {}", meta.len());
+                    match arg.key.as_str() {
+                        "bufsize" => len = Some(arg.value),
+                        unknown => panic!("unknown serbia option {}", unknown),
+                    }
                 }
-
-                let len = meta.pop().unwrap().into_token_stream();
-
-                return Some(Self { field, len });
             }
+        }
+
+        if let Some(len) = len {
+            let len = if let Lit::Str(const_name) = len {
+                Ident::new(&const_name.value(), const_name.span()).to_token_stream()
+            } else {
+                len.into_token_stream()
+            };
+
+            return Some(BigArrayField { field, len });
         }
 
         // And this is how you end up in destructuring bind hell.

@@ -55,7 +55,7 @@ type BigArray = [i32; BUFSIZE];
 #[serbia]
 #[derive(Serialize, Deserialize)]
 struct S {
-    #[serbia_bufsize(BUFSIZE)]
+    #[serbia(bufsize = "BUFSIZE")]
     arr_a: BigArray,
     foo: String,
 }

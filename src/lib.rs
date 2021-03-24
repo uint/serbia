@@ -1,5 +1,6 @@
 //! This crate provides the [serbia](macro@self::serbia) macro.
 
+#![feature(drain_filter)]
 extern crate proc_macro;
 
 mod item;
@@ -123,7 +124,7 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 /// #[serbia]
 /// #[derive(Serialize, Deserialize)]
 /// struct S {
-///     #[serbia_bufsize(BUFSIZE)]
+///     #[serbia(bufsize = "BUFSIZE")]
 ///     arr_a: BigArray,
 ///     foo: String,
 /// }

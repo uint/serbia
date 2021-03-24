@@ -67,7 +67,7 @@ impl Item {
     }
 
     pub fn big_array_fields(&mut self) -> impl Iterator<Item = BigArrayField> {
-        self.fields().filter_map(BigArrayField::from_field)
+        self.fields().filter_map(BigArrayField::parse_field)
     }
 
     fn fields(&mut self) -> impl Iterator<Item = &mut Field> {
@@ -133,9 +133,9 @@ mod tests {
 
         let mut fields: Vec<_> = s.fields.into_iter().collect();
 
-        assert!(BigArrayField::from_field(&mut fields[0]).is_none());
-        assert!(BigArrayField::from_field(&mut fields[1]).is_none());
-        assert!(BigArrayField::from_field(&mut fields[2]).is_some());
+        assert!(BigArrayField::parse_field(&mut fields[0]).is_none());
+        assert!(BigArrayField::parse_field(&mut fields[1]).is_none());
+        assert!(BigArrayField::parse_field(&mut fields[2]).is_some());
     }
 
     #[test]
@@ -143,7 +143,7 @@ mod tests {
         let s: ItemStruct = parse_quote! {
             struct S {
                 a: String,
-                #[serbia_bufsize(32)]
+                #[serbia(bufsize = 32)]
                 b: [u32; 32],
                 c: [u32; 33],
             }
@@ -151,9 +151,9 @@ mod tests {
 
         let mut fields: Vec<_> = s.fields.into_iter().collect();
 
-        assert!(BigArrayField::from_field(&mut fields[0]).is_none());
-        assert!(BigArrayField::from_field(&mut fields[1]).is_some());
-        assert!(BigArrayField::from_field(&mut fields[2]).is_some());
+        assert!(BigArrayField::parse_field(&mut fields[0]).is_none());
+        assert!(BigArrayField::parse_field(&mut fields[1]).is_some());
+        assert!(BigArrayField::parse_field(&mut fields[2]).is_some());
     }
 
     #[test]

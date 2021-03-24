@@ -104,7 +104,7 @@ fn type_alias() {
     #[serbia]
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct S {
-        #[serbia_bufsize(BUFSIZE)]
+        #[serbia(bufsize = "BUFSIZE")]
         arr_a: BigArray,
         arr_b: [u8; 42],
         arr_small: [u8; 8],
