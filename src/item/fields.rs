@@ -46,6 +46,9 @@ impl<'f> BigArrayField<'f> {
                     let len = array_type.len.clone().into_token_stream();
                     return Some(BigArrayField { field, len });
                 }
+            } else if let Expr::Path(len) = &array_type.len {
+                let len = len.into_token_stream();
+                return Some(BigArrayField { field, len });
             }
         }
 

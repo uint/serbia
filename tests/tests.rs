@@ -73,6 +73,30 @@ fn enum_roundtrip() {
 }
 
 #[test]
+fn constant() {
+    const BUFSIZE: usize = 300;
+
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        arr_a: [u8; BUFSIZE],
+        arr_b: [u8; 42],
+        arr_small: [u8; 8],
+    }
+
+    let original = S {
+        arr_a: [0; BUFSIZE],
+        arr_b: [0; 42],
+        arr_small: [0; 8],
+    };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized = serde_yaml::from_str(&serialized).unwrap();
+
+    assert_eq!(original, deserialized);
+}
+
+#[test]
 fn type_alias() {
     const BUFSIZE: usize = 300;
     type BigArray = [i32; BUFSIZE];
