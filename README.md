@@ -77,9 +77,24 @@ struct S {
 }
 ```
 
+It's possible to be more granular, if needed for some reason.
+
+```rust
+const BUFSIZE: usize = 24;
+
+#[serbia]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct S {
+    #[serbia(serialize = false, deserialize = false)]
+    arr_a: [u8; BUFSIZE],
+    arr_b: [u8; 42],
+    arr_small: [u8; 8],
+}
+```
+
 ### Manual array length
 
-You can use the `#[serbia_bufsize( ... )]` attribute to set a buffer size for
+You can use the `#[serbia(bufsize = ... )]` option to set a buffer size for
 a field. This can be useful to make type aliases work. Constants work here!
 
 ```rust

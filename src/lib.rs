@@ -139,7 +139,7 @@ pub fn serbia(
     let mut fn_defs = vec![];
 
     for (i, field) in input.big_array_fields().enumerate() {
-        if context.serialize {
+        if context.serialize && field.serialize {
             let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 
@@ -149,7 +149,7 @@ pub fn serbia(
 
             fn_defs.push(render_serialize_fn(&fn_ident, &field.len));
         }
-        if context.deserialize {
+        if context.deserialize && field.deserialize {
             let fn_ident = format_ident!("serbia_deserialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
 

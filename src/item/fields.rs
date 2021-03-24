@@ -27,11 +27,15 @@ fn parse_arg(meta: NestedMeta) -> Result<Arg, ()> {
 pub struct BigArrayField<'f> {
     pub field: &'f mut Field,
     pub len: TokenStream,
+    pub serialize: bool,
+    pub deserialize: bool,
 }
 
 impl<'f> BigArrayField<'f> {
     pub fn parse_field(field: &'f mut Field) -> Option<Self> {
         let mut len = None;
+        let mut serialize = true;
+        let mut deserialize = true;
 
         // TODO: replace with drain_filter once stabilized.
         let (serbia_attrs, other_attrs): (Vec<_>, Vec<_>) =
@@ -52,11 +56,27 @@ impl<'f> BigArrayField<'f> {
 
                     match arg.key.as_str() {
                         "bufsize" => len = Some(arg.value),
+                        "serialize" => {
+                            if let Lit::Bool(serialize_lit) = arg.value {
+                                serialize = serialize_lit.value();
+                            } else {
+                                panic!("expected bool for serbia's serialize option");
+                            }
+                        }
+                        "deserialize" => {
+                            if let Lit::Bool(deserialize_lit) = arg.value {
+                                deserialize = deserialize_lit.value();
+                            } else {
+                                panic!("expected bool for serbia's deserialize option");
+                            }
+                        }
                         "skip" => {
                             if let Lit::Bool(skip) = arg.value {
                                 if skip.value() {
                                     return None;
                                 }
+                            } else {
+                                panic!("expected bool for serbia's skip option");
                             }
                         }
                         unknown => panic!("unknown serbia option {}", unknown),
@@ -72,7 +92,12 @@ impl<'f> BigArrayField<'f> {
                 len.into_token_stream()
             };
 
-            return Some(BigArrayField { field, len });
+            return Some(BigArrayField {
+                field,
+                len,
+                serialize,
+                deserialize,
+            });
         }
 
         // And this is how you end up in destructuring bind hell.
@@ -85,11 +110,21 @@ impl<'f> BigArrayField<'f> {
 
                 if len > 32 {
                     let len = array_type.len.clone().into_token_stream();
-                    return Some(BigArrayField { field, len });
+                    return Some(BigArrayField {
+                        field,
+                        len,
+                        serialize,
+                        deserialize,
+                    });
                 }
             } else if let Expr::Path(len) = &array_type.len {
                 let len = len.into_token_stream();
-                return Some(BigArrayField { field, len });
+                return Some(BigArrayField {
+                    field,
+                    len,
+                    serialize,
+                    deserialize,
+                });
             }
         }
 
