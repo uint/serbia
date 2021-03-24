@@ -68,7 +68,7 @@ code for a field that it would normally handle, you can skip it.
 const BUFSIZE: usize = 24;
 
 #[serbia]
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize)]
 struct S {
     #[serbia(skip = true)]
     arr_a: [u8; BUFSIZE],
@@ -77,13 +77,13 @@ struct S {
 }
 ```
 
-It's possible to be more granular, if needed for some reason.
+It's possible to be more granular if needed for some reason.
 
 ```rust
 const BUFSIZE: usize = 24;
 
 #[serbia]
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize)]
 struct S {
     #[serbia(serialize = false, deserialize = false)]
     arr_a: [u8; BUFSIZE],
@@ -94,7 +94,7 @@ struct S {
 
 ### Manual array length
 
-You can use the `#[serbia(bufsize = ... )]` option to set a buffer size for
+You can use the `#[serbia(bufsize = ... )]` option to set an array length for
 a field. This can be useful to make type aliases work. Constants work here!
 
 ```rust
