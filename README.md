@@ -44,7 +44,7 @@ enum E {
 }
 ```
 
-If *serbia* sees a constant given as array length, it will generate custom
+If *serbia* sees an array length given as a constant, it will generate custom
 serialize/deserialize code by default, without inspecting whether the constant
 is larger than 32 or not. This is a limitation of macros.
 
@@ -120,4 +120,18 @@ struct S {
     arr_a: BigArray,
     foo: String,
 }
+```
+
+### Interaction with Serde field attributes
+*serbia* detects when a custom serializer/deserializer function is used with
+*Serde* and forgoes adding its own implementations for those cases.
+
+```rust
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        big_arr: [u8; 40],    // serbia generates code for this
+        #[serde(serialize_with="ser", deserialize_with="de")]
+        bigger_arr: [u8; 42], // serbia ignores this in favor of the (de)serializers you provided
+    }
 ```

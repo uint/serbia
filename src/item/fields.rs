@@ -49,6 +49,14 @@ impl<'f> BigArrayField<'f> {
 
         field.attrs = other_attrs;
 
+        let serde_attrs = field.attrs.iter().filter(|a| {
+            if let Some(ident) = a.path.get_ident() {
+                return ident == "serde";
+            }
+
+            false
+        });
+
         for attr in serbia_attrs {
             if let Meta::List(MetaList { nested: meta, .. }) = attr.parse_meta().unwrap() {
                 for arg in meta {
@@ -80,6 +88,20 @@ impl<'f> BigArrayField<'f> {
                             }
                         }
                         unknown => panic!("unknown serbia option {}", unknown),
+                    }
+                }
+            }
+        }
+
+        for attr in serde_attrs {
+            if let Meta::List(MetaList { nested: meta, .. }) = attr.parse_meta().unwrap() {
+                for arg in meta {
+                    let arg = parse_arg(arg).unwrap();
+
+                    match arg.key.as_str() {
+                        "serialize_with" => serialize = false,
+                        "deserialize_with" => deserialize = false,
+                        _ => {}
                     }
                 }
             }
