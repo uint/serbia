@@ -1,6 +1,5 @@
 //! This crate provides the [serbia](macro@self::serbia) macro.
 
-#![feature(drain_filter)]
 extern crate proc_macro;
 
 mod item;

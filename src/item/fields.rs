@@ -33,13 +33,19 @@ impl<'f> BigArrayField<'f> {
     pub fn parse_field(field: &'f mut Field) -> Option<Self> {
         let mut len = None;
 
-        for attr in field.attrs.drain_filter(|a| {
-            if let Some(ident) = a.path.get_ident() {
-                return ident == "serbia";
-            }
+        // TODO: replace with drain_filter once stabilized.
+        let (serbia_attrs, other_attrs): (Vec<_>, Vec<_>) =
+            field.attrs.iter().cloned().partition(|a| {
+                if let Some(ident) = a.path.get_ident() {
+                    return ident == "serbia";
+                }
 
-            false
-        }) {
+                false
+            });
+
+        field.attrs = other_attrs;
+
+        for attr in serbia_attrs {
             if let Meta::List(MetaList { nested: meta, .. }) = attr.parse_meta().unwrap() {
                 for arg in meta {
                     let arg = parse_arg(arg).unwrap();
