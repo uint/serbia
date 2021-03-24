@@ -52,6 +52,13 @@ impl<'f> BigArrayField<'f> {
 
                     match arg.key.as_str() {
                         "bufsize" => len = Some(arg.value),
+                        "skip" => {
+                            if let Lit::Bool(skip) = arg.value {
+                                if skip.value() {
+                                    return None;
+                                }
+                            }
+                        }
                         unknown => panic!("unknown serbia option {}", unknown),
                     }
                 }

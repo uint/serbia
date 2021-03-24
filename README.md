@@ -31,9 +31,8 @@ use serbia::serbia;
 #[serbia]
 #[derive(Serialize, Deserialize)]
 struct S {
-    arr_a: [u8; 300],
-    arr_b: [u8; 42],
-    arr_small: [u8; 8],
+    arr_big: [u8; 300],     // custom serialize/deserialize code generated here
+    arr_small: [u8; 8],     // no custom code - this is handled by Serde fine
 }
 
 #[serbia]
@@ -45,8 +44,55 @@ enum E {
 }
 ```
 
+If *serbia* sees a constant given as array length, it will generate custom
+serialize/deserialize code by default, without inspecting whether the constant
+is larger than 32 or not. This is a limitation of macros.
+
+```rust
+const BUFSIZE: usize = 22;
+
+#[serbia]
+#[derive(Serialize, Deserialize)]
+struct S {
+    arr: [i32; BUFSIZE],   // custom serialize/deserialize code generated here
+    foo: String,
+}
+```
+
+### Skipping fields
+
+If for some reason you don't want *serbia* to generate custom serialize/deserialize
+code for a field that it would normally handle, you can skip it.
+
+```rust
+const BUFSIZE: usize = 24;
+
+#[serbia]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct S {
+    #[serbia(skip = true)]
+    arr_a: [u8; BUFSIZE],
+    arr_b: [u8; 42],
+    arr_small: [u8; 8],
+}
+```
+
+### Manual array length
+
 You can use the `#[serbia_bufsize( ... )]` attribute to set a buffer size for
-a field. This can be useful for type aliases. Constants work here!
+a field. This can be useful to make type aliases work. Constants work here!
+
+```rust
+type BigArray = [i32; 300];
+
+#[serbia]
+#[derive(Serialize, Deserialize)]
+struct S {
+    #[serbia(bufsize = 300)]
+    arr_a: BigArray,
+    foo: String,
+}
+```
 
 ```rust
 const BUFSIZE: usize = 300;
