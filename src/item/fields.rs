@@ -96,12 +96,16 @@ impl<'f> BigArrayField<'f> {
         for attr in serde_attrs {
             if let Meta::List(MetaList { nested: meta, .. }) = attr.parse_meta().unwrap() {
                 for arg in meta {
-                    let arg = parse_arg(arg).unwrap();
-
-                    match arg.key.as_str() {
-                        "serialize_with" => serialize = false,
-                        "deserialize_with" => deserialize = false,
-                        _ => {}
+                    if let NestedMeta::Meta(meta) = arg {
+                        match meta.path().get_ident().unwrap().to_string().as_str() {
+                            "serialize_with" | "skip_serializing" => serialize = false,
+                            "deserialize_with" | "skip_deserializing" => deserialize = false,
+                            "skip" | "with" => {
+                                serialize = false;
+                                deserialize = false;
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }

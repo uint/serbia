@@ -215,3 +215,52 @@ fn skip_when_serde_serialize_deserialize_with() {
     assert_ne!(original, deserialized);
     assert_eq!(deserialized, expected);
 }
+
+#[test]
+fn serde_skip_field() {
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        #[serde(skip, default = "def")]
+        arr_a: [u8; 42],
+    }
+
+    fn def() -> [u8; 42] {
+        [3; 42]
+    }
+
+    let original = S { arr_a: [0; 42] };
+
+    let expected = S { arr_a: [3; 42] };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized = serde_yaml::from_str(&serialized).unwrap();
+
+    assert_ne!(original, deserialized);
+    assert_eq!(expected, deserialized);
+}
+
+#[test]
+fn serde_skip_serializing() {
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        #[serde(skip_serializing)]
+        arr_a: [u8; 42],
+    }
+
+    let original = S { arr_a: [2; 42] };
+
+    let expected = S { arr_a: [0; 42] };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized: Result<S, _> = serde_yaml::from_str(&serialized);
+
+    assert!(deserialized.is_err());
+
+    let deserialized = serde_yaml::from_str(r#"
+        arr_a: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    "#).unwrap();
+
+    assert_eq!(expected, deserialized);
+}

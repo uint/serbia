@@ -1,10 +1,10 @@
-# serbia
+# Serbia
 
 [![docs.rs badge](https://img.shields.io/docsrs/serbia?style=flat-square)](https://docs.rs/serbia/)
 [![crates.io badge](https://img.shields.io/crates/v/serbia.svg?style=flat-square&logo=rust)](https://crates.io/crates/serbia/)
 [![Build Status](https://img.shields.io/github/workflow/status/uint/serbia/serbia%20CI?logo=Github&style=flat-square)](https://github.com/uint/serbia)
 
-Serde big arrays. An attribute macro to make (de)serializing big arrays painless, following a [design proposed by David Tolnay](https://github.com/dtolnay/request-for-implementation/issues/17).
+*SE*rde *BI*g *A*rrays. An attribute macro to make (de)serializing big arrays painless, roughly following a [design proposed by David Tolnay](https://github.com/dtolnay/request-for-implementation/issues/17).
 
 ## Why?
 I saw the idea in [request-for-implementation](https://github.com/dtolnay/request-for-implementation). Then I came up with the name.
@@ -44,7 +44,7 @@ enum E {
 }
 ```
 
-If *serbia* sees an array length given as a constant, it will generate custom
+If *Serbia* sees an array length given as a constant, it will generate custom
 serialize/deserialize code by default, without inspecting whether the constant
 is larger than 32 or not. This is a limitation of macros.
 
@@ -61,7 +61,7 @@ struct S {
 
 ### Skipping fields
 
-If for some reason you don't want *serbia* to generate custom serialize/deserialize
+If for some reason you don't want *Serbia* to generate custom serialize/deserialize
 code for a field that it would normally handle, you can skip it.
 
 ```rust
@@ -123,8 +123,8 @@ struct S {
 ```
 
 ### Interaction with Serde field attributes
-*serbia* detects when a custom serializer/deserializer function is used with
-*Serde* and forgoes adding its own implementations for those cases.
+*Serbia* detects when certain *Serde* field attributes are used and avoids
+generating code that would cause a conflict, instead yielding to *Serde*.
 
 ```rust
     #[serbia]
@@ -135,3 +135,11 @@ struct S {
         bigger_arr: [u8; 42], // serbia ignores this in favor of the (de)serializers you provided
     }
 ```
+
+These are *Serde* attributes that should work flawlessly with *Serbia* as of now:
+* `serialize_with`
+* `deserialize_with`
+* `skip_serializing`
+* `skip_deserializing`
+* `skip`
+* `with`
