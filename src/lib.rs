@@ -62,18 +62,18 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
                 where
                     A: serde::de::SeqAccess<'de>,
                 {
-                    unsafe {
-                        let mut arr: Self::Value =  std::mem::MaybeUninit::uninit().assume_init();
+                    use std::mem::{self, MaybeUninit};
 
-                        for (i, v) in arr.iter_mut().enumerate() {
-                            *v = match seq.next_element()? {
-                                Some(val) => val,
-                                None => return Err(serde::de::Error::invalid_length(i, &self)),
-                            };
-                        }
+                    let mut arr: [MaybeUninit<E>; #len] = unsafe { MaybeUninit::uninit().assume_init() };
 
-                        Ok(arr)
+                    for (i, v) in arr.iter_mut().enumerate() {
+                        *v = MaybeUninit::new(match seq.next_element()? {
+                            Some(val) => val,
+                            None => return Err(serde::de::Error::invalid_length(i, &self)),
+                        });
                     }
+
+                    Ok(unsafe { mem::transmute_copy::<_, [E; #len]>(&arr) })
                 }
             }
 
