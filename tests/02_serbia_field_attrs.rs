@@ -34,7 +34,7 @@ fn skip_field() {
     #[serbia]
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct S {
-        #[serbia(skip = true)]
+        #[serbia(skip)]
         arr_a: [u8; BUFSIZE],
         arr_b: [u8; 42],
         arr_small: [u8; 8],

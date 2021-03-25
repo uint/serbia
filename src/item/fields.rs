@@ -2,7 +2,12 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{Expr, ExprLit, Field, Ident, Lit, Meta, MetaList, NestedMeta, Type};
 
-struct Arg {
+enum Arg {
+    Flag(String),
+    KeyValueArg(KeyValueArg),
+}
+
+struct KeyValueArg {
     key: String,
     value: Lit,
 }
@@ -12,11 +17,17 @@ fn parse_arg(meta: NestedMeta) -> Result<Arg, ()> {
         let key = meta
             .path
             .get_ident()
-            .expect("expected attribute arg key to be an ident")
+            .expect("expected serbia argument to be an ident")
             .to_string();
         let value = meta.lit;
 
-        return Ok(Arg { key, value });
+        return Ok(Arg::KeyValueArg(KeyValueArg { key, value }));
+    } else if let NestedMeta::Meta(Meta::Path(path)) = meta {
+        let key = path
+            .get_ident()
+            .expect("expected serbia flag to be an ident")
+            .to_string();
+        return Ok(Arg::Flag(key));
     }
 
     Err(())
@@ -62,32 +73,17 @@ impl<'f> BigArrayField<'f> {
                 for arg in meta {
                     let arg = parse_arg(arg).unwrap();
 
-                    match arg.key.as_str() {
-                        "bufsize" => len = Some(arg.value),
-                        "serialize" => {
-                            if let Lit::Bool(serialize_lit) = arg.value {
-                                serialize = serialize_lit.value();
-                            } else {
-                                panic!("expected bool for serbia's serialize option");
-                            }
-                        }
-                        "deserialize" => {
-                            if let Lit::Bool(deserialize_lit) = arg.value {
-                                deserialize = deserialize_lit.value();
-                            } else {
-                                panic!("expected bool for serbia's deserialize option");
-                            }
-                        }
-                        "skip" => {
-                            if let Lit::Bool(skip) = arg.value {
-                                if skip.value() {
-                                    return None;
-                                }
-                            } else {
-                                panic!("expected bool for serbia's skip option");
-                            }
-                        }
-                        unknown => panic!("unknown serbia option {}", unknown),
+                    match arg {
+                        Arg::Flag(flag) => match flag.as_str() {
+                            "skip" => return None,
+                            "skip_serializing" => serialize = false,
+                            "skip_deserializing" => deserialize = false,
+                            unknown => panic!("unknown serbia flag: {}", unknown),
+                        },
+                        Arg::KeyValueArg(key_value) => match key_value.key.as_str() {
+                            "bufsize" => len = Some(key_value.value),
+                            unknown => panic!("unknown serbia key-value option: {}", unknown),
+                        },
                     }
                 }
             }

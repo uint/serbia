@@ -70,7 +70,7 @@ const BUFSIZE: usize = 24;
 #[serbia]
 #[derive(Serialize, Deserialize)]
 struct S {
-    #[serbia(skip = true)]
+    #[serbia(skip)]
     arr_a: [u8; BUFSIZE],
     arr_b: [u8; 42],
     arr_small: [u8; 8],
@@ -85,7 +85,7 @@ const BUFSIZE: usize = 24;
 #[serbia]
 #[derive(Serialize, Deserialize)]
 struct S {
-    #[serbia(serialize = false, deserialize = false)]
+    #[serbia(skip_serializing, skip_deserializing)]
     arr_a: [u8; BUFSIZE],
     arr_b: [u8; 42],
     arr_small: [u8; 8],
