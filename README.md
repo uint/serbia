@@ -143,3 +143,14 @@ These are *Serde* attributes that should work flawlessly with *Serbia* as of now
 * `skip_deserializing`
 * `skip`
 * `with`
+
+## What doesn't work
+Nested types.
+
+```rust
+#[serbia]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+struct S {
+    big_arr: Option<[u8; 300]>,  // no code generated for this nested array
+}
+```
