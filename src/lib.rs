@@ -86,17 +86,18 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 ///
 /// Simply slap it on top of your struct or enum, before the [Serialize](serde::Serialize)/[Deserialize](serde::Deserialize) derive.
 ///
-/// # Basic usage
-/// ```edition2018
+/// # Usage
+/// Just slap `#[serbia]` on top of your type definition. Structs and enums both work!
+///
+/// ```rust
 /// use serbia::serbia;
-/// use serde::{Deserialize, Serialize};
+/// use serde::{Serialize, Deserialize};
 ///
 /// #[serbia]
 /// #[derive(Serialize, Deserialize)]
 /// struct S {
-///     arr_big: [u8; 300],   // Custom (de)serializers will be generated for this.
-///     arr_small: [u8; 8],   // Nothing done here - Serde handles arrays up to length 32 just fine.
-///     s: String,
+///     arr_big: [u8; 300],     // custom serialize/deserialize code generated here
+///     arr_small: [u8; 8],     // no custom code - this is handled by Serde fine
 /// }
 ///
 /// #[serbia]
@@ -108,15 +109,87 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 /// }
 /// ```
 ///
-/// # Specifying buffer size
-///
-/// You can use the `#[serbia_bufsize( ... )]` attribute to set a buffer size for
-/// a field. This can be useful for type aliases. Constants work.
+/// If *Serbia* sees an array length given as a constant, it will generate custom
+/// serialize/deserialize code by default, without inspecting whether the constant
+/// is larger than 32 or not. This is a limitation of macros.
 ///
 /// ```rust
-/// use serbia::serbia;
-/// use serde::{Deserialize, Serialize};
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+/// #
+/// const BUFSIZE: usize = 22;
 ///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     arr: [i32; BUFSIZE],   // custom serialize/deserialize code generated here
+///     foo: String,
+/// }
+/// ```
+///
+/// ## Skipping fields
+///
+/// If for some reason you don't want *Serbia* to generate custom serialize/deserialize
+/// code for a field that it would normally handle, you can skip it.
+///
+/// ```rust
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+/// #
+/// const BUFSIZE: usize = 24;
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     #[serbia(skip)]
+///     arr_a: [u8; BUFSIZE],
+///     arr_b: [u8; 42],
+///     arr_small: [u8; 8],
+/// }
+/// ```
+///
+/// It's possible to be more granular if needed for some reason.
+///
+/// ```rust
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+/// #
+/// const BUFSIZE: usize = 24;
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     #[serbia(skip_serializing, skip_deserializing)]
+///     arr_a: [u8; BUFSIZE],
+///     arr_b: [u8; 42],
+///     arr_small: [u8; 8],
+/// }
+/// ```
+///
+/// ## Manual array length
+///
+/// You can use the `#[serbia(bufsize = ... )]` option to set an array length for
+/// a field. This can be useful to make type aliases work. Constants work here!
+///
+/// ```rust
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+/// #
+/// type BigArray = [i32; 300];
+///
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     #[serbia(bufsize = 300)]
+///     arr_a: BigArray,
+///     foo: String,
+/// }
+/// ```
+///
+/// ```rust
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+/// #
 /// const BUFSIZE: usize = 300;
 /// type BigArray = [i32; BUFSIZE];
 ///
@@ -128,6 +201,91 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
 ///     foo: String,
 /// }
 /// ```
+///
+/// ## Interaction with Serde field attributes
+/// *Serbia* detects when certain *Serde* field attributes are used and avoids
+/// generating code that would cause a conflict, instead yielding to *Serde*.
+///
+/// ```rust
+/// # use serbia::serbia;
+/// # use serde::{ser::SerializeTuple, Serialize, Deserialize};
+/// #
+/// #[serbia]
+/// #[derive(Serialize, Deserialize)]
+/// struct S {
+///     big_arr: [u8; 40],    // serbia generates code for this
+///     #[serde(serialize_with="ser", deserialize_with="de")]
+///     bigger_arr: [u8; 42], // serbia ignores this in favor of the (de)serializers you provided
+/// }
+/// # fn ser<S>(array: &[u8; 42], serializer: S) -> Result<S::Ok, S::Error>
+/// # where
+/// #     S: serde::Serializer,
+/// # {
+/// #     let mut seq = serializer.serialize_tuple(42)?;
+/// #     for e in array {
+/// #         seq.serialize_element(e)?;
+/// #     }
+/// #     seq.end()
+/// # }
+/// #
+/// # fn de<'de, D>(deserializer: D) -> core::result::Result<[u8; 42], D::Error>
+/// # where
+/// #     D: serde::Deserializer<'de>,
+/// # {
+/// #     struct Visitor;
+/// #
+/// #     impl<'de> serde::de::Visitor<'de> for Visitor {
+/// #         type Value = [u8; 42];
+/// #
+/// #         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+/// #             formatter.write_str(std::concat!("an array"))
+/// #         }
+/// #
+/// #         #[inline]
+/// #         fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+/// #         where
+/// #             A: serde::de::SeqAccess<'de>,
+/// #         {
+/// #             unsafe {
+/// #                 let mut arr: Self::Value = std::mem::MaybeUninit::uninit().assume_init();
+/// #
+/// #                 for (i, v) in arr.iter_mut().enumerate() {
+/// #                     *v = match seq.next_element()? {
+/// #                         Some(val) => val,
+/// #                         None => return Err(serde::de::Error::invalid_length(i, &self)),
+/// #                     };
+/// #                 }
+/// #
+/// #                 Ok(arr)
+/// #             }
+/// #         }
+/// #     }
+/// #
+/// #     deserializer.deserialize_tuple(42, Visitor)
+/// # }
+/// ```
+///
+/// *Serbia* is intended to play nice with *Serde* field attributes.
+/// If there are problems, please create an issue or submit a PR!
+///
+/// # What doesn't work
+/// Nested types.
+///
+/// ```compile_fail
+/// # use serbia::serbia;
+/// # use serde::{Serialize, Deserialize};
+///
+/// #[serbia]
+/// #[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// struct S {
+///     big_arr: Option<[u8; 300]>,  // no code generated for this nested array
+/// }
+/// ```
+///
+/// *Serbia* doesn't yet pick up on *Serde* variant attributes,
+/// so there might be conflicts there. This can probably be worked around by using
+/// `#[serbia(skip)]` on each field that *Serbia* would try to generate custom
+/// (de)serialization code for.
 #[proc_macro_attribute]
 pub fn serbia(
     _attr: proc_macro::TokenStream,
