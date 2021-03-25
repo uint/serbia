@@ -136,13 +136,8 @@ generating code that would cause a conflict, instead yielding to *Serde*.
     }
 ```
 
-These are *Serde* attributes that should work flawlessly with *Serbia* as of now:
-* `serialize_with`
-* `deserialize_with`
-* `skip_serializing`
-* `skip_deserializing`
-* `skip`
-* `with`
+*Serbia* is intended to play nice with *Serde* field attributes.
+If there are problems, please create an issue or submit a PR!
 
 ## What doesn't work
 Nested types.
@@ -154,3 +149,8 @@ struct S {
     big_arr: Option<[u8; 300]>,  // no code generated for this nested array
 }
 ```
+
+*Serbia* doesn't yet pick up on *Serde* variant attributes,
+so there might be conflicts there. This can probably be worked around by using
+`#[serbia(skip = true)]` on each fields that *Serbia* would try to generate custom
+(de)serialization code for.
