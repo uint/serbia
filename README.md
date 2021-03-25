@@ -152,5 +152,5 @@ struct S {
 
 *Serbia* doesn't yet pick up on *Serde* variant attributes,
 so there might be conflicts there. This can probably be worked around by using
-`#[serbia(skip = true)]` on each fields that *Serbia* would try to generate custom
+`#[serbia(skip)]` on each field that *Serbia* would try to generate custom
 (de)serialization code for.
