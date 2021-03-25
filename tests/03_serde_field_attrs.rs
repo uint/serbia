@@ -118,3 +118,53 @@ fn skip_serializing() {
 
     assert_eq!(expected, deserialized);
 }
+
+#[test]
+fn skip_serializing_if_true() {
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        #[serde(skip_serializing_if = "t")]
+        arr_a: [u8; 42],
+    }
+
+    fn t<T>(_: T) -> bool {
+        true
+    }
+
+    let original = S { arr_a: [2; 42] };
+
+    let expected = S { arr_a: [0; 42] };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized: Result<S, _> = serde_yaml::from_str(&serialized);
+
+    assert!(deserialized.is_err());
+
+    let deserialized = serde_yaml::from_str(r#"
+        arr_a: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    "#).unwrap();
+
+    assert_eq!(expected, deserialized);
+}
+
+#[test]
+fn skip_serializing_if_false() {
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S {
+        #[serde(skip_serializing_if = "f")]
+        arr_a: [u8; 42],
+    }
+
+    fn f<T>(_: T) -> bool {
+        false
+    }
+
+    let original = S { arr_a: [2; 42] };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized = serde_yaml::from_str(&serialized).unwrap();
+
+    assert_eq!(original, deserialized);
+}
