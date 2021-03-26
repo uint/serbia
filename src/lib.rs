@@ -69,7 +69,14 @@ fn render_deserialize_fn(fn_ident: &Ident, len: impl ToTokens) -> TokenStream {
                     for (i, v) in arr.iter_mut().enumerate() {
                         *v = MaybeUninit::new(match seq.next_element()? {
                             Some(val) => val,
-                            None => return Err(serde::de::Error::invalid_length(i, &self)),
+                            None => {
+                                (&mut arr[0..i]).iter_mut().for_each(|elem| {
+                                    // TODO This would be better with assume_init_drop nightly function
+                                    // https://github.com/rust-lang/rust/issues/63567
+                                    unsafe { std::ptr::drop_in_place(elem.as_mut_ptr()) };
+                                });
+                                return Err(serde::de::Error::invalid_length(i, &self));
+                            }
                         });
                     }
 
