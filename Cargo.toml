@@ -1,7 +1,7 @@
 [package]
 name = "serbia"
 description = "No-fuss big arrays for Serde"
-version = "0.4.3-alpha.0"
+version = "0.4.3"
 authors = ["Tomasz Kurcz <uint@lavabit.com>"]
 license = "MIT"
 repository = "https://github.com/uint/serbia"
