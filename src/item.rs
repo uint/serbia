@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{
     parse::{Parse, ParseStream},
-    Ident,
+    Generics, Ident,
 };
 use syn::{Attribute, Field, ItemEnum, ItemStruct, Meta, NestedMeta};
 
@@ -41,6 +41,7 @@ pub struct Context {
     pub type_name: String,
     pub serialize: bool,
     pub deserialize: bool,
+    pub generics: Generics,
 }
 
 pub enum Item {
@@ -63,6 +64,7 @@ impl Item {
             type_name: self.ident().to_string(),
             serialize,
             deserialize,
+            generics: self.generics().clone(),
         }
     }
 
@@ -81,6 +83,13 @@ impl Item {
         };
 
         result
+    }
+
+    fn generics(&self) -> &Generics {
+        match self {
+            Item::Struct(s) => &s.generics,
+            Item::Enum(e) => &e.generics,
+        }
     }
 
     fn attrs(&self) -> impl Iterator<Item = &Attribute> {

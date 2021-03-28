@@ -6,7 +6,7 @@ mod item;
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, parse_quote};
+use syn::{parse_macro_input, parse_quote, Type, TypePath};
 
 use crate::item::Item;
 
@@ -304,6 +304,14 @@ pub fn serbia(
     let mut fn_defs = vec![];
 
     for (i, field) in input.big_array_fields().enumerate() {
+        let mut generate_bounds_for = None;
+
+        if let Some(Type::Path(TypePath { path: el_ty, .. })) = field.element_type {
+            if let Some(el_ty) = el_ty.get_ident() {
+                generate_bounds_for = context.generics.type_params().find(|ty| &ty.ident == el_ty);
+            }
+        }
+
         if context.serialize && field.serialize {
             let fn_ident = format_ident!("serbia_serialize_{}_arr_{}", context.type_name, i);
             let fn_name = fn_ident.to_string();
@@ -311,6 +319,16 @@ pub fn serbia(
             field.field.attrs.push(parse_quote! {
                 #[serde(serialize_with = #fn_name)]
             });
+            if let Some(type_param) = generate_bounds_for {
+                let bound: syn::TypeParam = parse_quote! {
+                    #type_param: Serialize
+                };
+                let bound = bound.into_token_stream().to_string();
+
+                field.field.attrs.push(parse_quote! {
+                    #[serde(bound(serialize = #bound))]
+                });
+            }
 
             fn_defs.push(render_serialize_fn(&fn_ident, &field.len));
         }
@@ -321,6 +339,16 @@ pub fn serbia(
             field.field.attrs.push(parse_quote! {
                 #[serde(deserialize_with = #fn_name)]
             });
+            if let Some(type_param) = generate_bounds_for {
+                let bound: syn::TypeParam = parse_quote! {
+                    #type_param: for<'d> Deserialize<'d>
+                };
+                let bound = bound.into_token_stream().to_string();
+
+                field.field.attrs.push(parse_quote! {
+                    #[serde(bound(deserialize = #bound))]
+                });
+            }
 
             fn_defs.push(render_deserialize_fn(&fn_ident, &field.len));
         }

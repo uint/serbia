@@ -40,13 +40,16 @@ pub struct BigArrayField<'f> {
     pub len: TokenStream,
     pub serialize: bool,
     pub deserialize: bool,
+    pub element_type: Option<Type>,
 }
 
 impl<'f> BigArrayField<'f> {
+    // TODO: This begs for a cleanup. Convoluted logic.
     pub fn parse_field(field: &'f mut Field) -> Option<Self> {
         let mut len = None;
         let mut serialize = true;
         let mut deserialize = true;
+        let mut element_type = None;
 
         // TODO: replace with drain_filter once stabilized.
         let (serbia_attrs, other_attrs): (Vec<_>, Vec<_>) =
@@ -81,7 +84,14 @@ impl<'f> BigArrayField<'f> {
                             unknown => panic!("unknown serbia flag: {}", unknown),
                         },
                         Arg::KeyValueArg(key_value) => match key_value.key.as_str() {
-                            "bufsize" => len = Some(key_value.value),
+                            "bufsize" => {
+                                len = Some(if let Lit::Str(const_name) = key_value.value {
+                                    Ident::new(&const_name.value(), const_name.span())
+                                        .to_token_stream()
+                                } else {
+                                    key_value.value.into_token_stream()
+                                });
+                            }
                             unknown => panic!("unknown serbia key-value option: {}", unknown),
                         },
                     }
@@ -107,47 +117,34 @@ impl<'f> BigArrayField<'f> {
             }
         }
 
-        if let Some(len) = len {
-            let len = if let Lit::Str(const_name) = len {
-                Ident::new(&const_name.value(), const_name.span()).to_token_stream()
-            } else {
-                len.into_token_stream()
-            };
+        if let Type::Array(array_type) = &field.ty {
+            element_type = Some(*array_type.elem.clone());
 
+            if len.is_none() {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Int(len_literal),
+                    ..
+                }) = &array_type.len
+                {
+                    let len_literal: usize = len_literal.base10_parse().unwrap();
+
+                    if len_literal > 32 {
+                        len = Some(array_type.len.clone().into_token_stream());
+                    }
+                } else if let Expr::Path(len_expr) = &array_type.len {
+                    len = Some(len_expr.into_token_stream());
+                }
+            }
+        }
+
+        if let Some(len) = len {
             return Some(BigArrayField {
                 field,
                 len,
                 serialize,
                 deserialize,
+                element_type,
             });
-        }
-
-        // And this is how you end up in destructuring bind hell.
-        if let Type::Array(array_type) = &field.ty {
-            if let Expr::Lit(ExprLit {
-                lit: Lit::Int(len), ..
-            }) = &array_type.len
-            {
-                let len: usize = len.base10_parse().unwrap();
-
-                if len > 32 {
-                    let len = array_type.len.clone().into_token_stream();
-                    return Some(BigArrayField {
-                        field,
-                        len,
-                        serialize,
-                        deserialize,
-                    });
-                }
-            } else if let Expr::Path(len) = &array_type.len {
-                let len = len.into_token_stream();
-                return Some(BigArrayField {
-                    field,
-                    len,
-                    serialize,
-                    deserialize,
-                });
-            }
         }
 
         None
