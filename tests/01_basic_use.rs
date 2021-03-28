@@ -96,6 +96,22 @@ fn constant() {
     assert_eq!(original, deserialized);
 }
 
+#[test]
+fn generics() {
+    #[serbia]
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct S<T> {
+        big_arr: [T; 300],
+    }
+
+    let original = S { big_arr: [0; 300] };
+
+    let serialized = serde_yaml::to_string(&original).unwrap();
+    let deserialized = serde_yaml::from_str(&serialized).unwrap();
+
+    assert_eq!(original, deserialized);
+}
+
 // Nested types are not supported (yet?)
 // #[test]
 // fn nested_types() {
